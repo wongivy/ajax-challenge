@@ -15,49 +15,60 @@ angular.module('CommentSystem', ['ui.bootstrap'])
         $scope.refreshComments = function() {
             $http.get(commentsURL)
                 .success(function(data) {
-                    $scope.comments = data.results;
+                    $scope.comments = data.results.sort(function(first, second) {
+                        if (first.score == second.score) {
+                            return 0;
+                        } else if (first.score < second.score) {
+                            return 1;
+                        } else {
+                            return -1;
+                        }
+                    });
                 });
         };
         $scope.refreshComments();
 
         $scope.addComment = function() {
             $scope.inserting = true;
+
             $http.post(commentsURL, $scope.newComment)
                 .success(function(responseData) {
                     $scope.newComment.objectId = responseData.objectId;
                     $scope.comments.push($scope.newComment);
+                    $scope.incrementScore($scope.newComment, 0);
                     $scope.newComment = {};
                 })
-                .finally( function() {
+                .finally(function() {
                     $scope.inserting = false;
                 });
         };
 
-        $scope.incrementVotes = function(comment, amount) {
-            var postData = {
-                votes: {
-                    __op: 'Increment',
-                    amount: amount
-                }
-            };
+        $scope.incrementScore = function(comment, amount) {
+            if (!(comment.score <= 0 && amount < 0)) {
+                var postData = {
+                    score: {
+                        __op: "Increment",
+                        amount: amount
+                    }
+                };
 
-            $scope.updating = true;
-            $http.put(commentsURL + '/' + comment.objectId, postData)
-                .success(function(respData) {
-                    comment.votes = respData.votes;
-                })
-                .error(function(err) {
-                    console.log(err);
-                })
-                .finally(function() {
-                    $scope.updating = false;
-                });
+                $scope.updating = true;
+                $http.put(commentsURL + '/' + comment.objectId, postData)
+                    .success(function(respData) {
+                        comment.score = respData.score;
+                    })
+                    .finally(function() {
+                        $scope.updating = false;
+                    });
+            }
+
         };
 
         $scope.deleteComment = function(comment) {
-            $http.delete(commentsURL + '/' + comment.objectId, comment).finally(function() {
-                $scope.refreshComments();
-            });
+            $http.delete(commentsURL + '/' + comment.objectId, comment)
+                .finally(function() {
+                    $scope.refreshComments();
+                });
         };
     });
 
